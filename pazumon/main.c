@@ -28,6 +28,8 @@ typedef struct
 
 } Monster;
 
+// === 敵モンスター ===
+
 Monster slaim = {
 	.name = "スライム",
 	.hp = 100,
@@ -70,20 +72,63 @@ Monster dragon = {
 
 Monster *monsters[] = {&slaim, &goblin, &flyingFox, &werewolf, &dragon};
 
+// === 味方モンスター ===
+
+Monster suzaku = {
+	.name = "朱雀",
+	.hp = 150,
+	.maxHp = 150,
+	.element = FIRE,
+	.attack = 25,
+	.defence = 10};
+
+Monster seiryu = {
+	.name = "青龍",
+	.hp = 150,
+	.maxHp = 150,
+	.element = WIND,
+	.attack = 15,
+	.defence = 10};
+
+Monster byakko = {
+	.name = "白虎",
+	.hp = 150,
+	.maxHp = 150,
+	.element = EARTH,
+	.attack = 20,
+	.defence = 5};
+
+Monster gennbu = {
+	.name = "玄武",
+	.hp = 150,
+	.maxHp = 150,
+	.element = WATER,
+	.attack = 20,
+	.defence = 15};
+
 typedef struct
 {
 	Monster **monstersHeadAddress;
 	int monstersCount;
 } Dungeon;
 
+typedef struct
+{
+	char *playerName;
+	Monster **monstersHeadAddress;
+	int monstersCount;
+} Party;
+
 Dungeon pazumonDungeon = {
 	.monstersHeadAddress = &monsters[0],
 	.monstersCount = sizeof(monsters) / sizeof(Monster *)};
 
 /** 関数宣言 **/
+Party organizeParty(char *playerName, Monster **monstersHeadAddress, int monstersCount);
+void showParty(Party *playerParty);
 void printMonsterName(Monster *monster);
-void goDungeon(char *playerName);
-void doBattle(Monster *monster);
+void goDungeon(Party *playerParty);
+void doBattle(Party *playerParty, Monster *monster);
 
 int main(int argc, char *argv[])
 {
@@ -93,32 +138,65 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	char *playerName = argv[1];
+	Monster *playerMonsters[] = {&suzaku, &seiryu, &byakko, &gennbu};
+	Party playerParty = organizeParty(playerName, &playerMonsters[0], sizeof(playerMonsters) / sizeof(Monster *));
+
 	printf("*** Puzzle & Monsters ***\n");
-	goDungeon(argv[1]);
-	for (int i = 0; i < pazumonDungeon.monstersCount; i++)
-	{
-		doBattle(monsters[i]);
-	}
+
+	goDungeon(&playerParty);
+
 	printf("*** GAME CLEARED! ***\n");
 	printf("倒したモンスターの数%d\n", pazumonDungeon.monstersCount);
 	return 0;
 }
 
 /** ユーティリティ宣言 **/
+Party organizeParty(char *playerName, Monster **monstersHeadAddress, int monstersCount)
+{
+	Party party = {
+		.playerName = playerName,
+		.monstersHeadAddress = monstersHeadAddress,
+		.monstersCount = monstersCount};
+	return party;
+}
+
+void showParty(Party *playerParty)
+{
+	printf("<パーティ構成>--------------------\n");
+	for (int i = 0; i < playerParty->monstersCount; i++)
+	{
+		Monster *monster = playerParty->monstersHeadAddress[i];
+		printf("\x1b[3%dm%c%s%c\x1b[39m ", ELEMNET_COLOR[monster->element], ELEMNET_SYMBOLS[monster->element], monster->name, ELEMNET_SYMBOLS[monster->element]);
+		printf("HP = %d 攻撃 = %d 防御 = %d\n", monster->hp, monster->attack, monster->defence);
+	}
+	printf("--------------------------------\n");
+}
+
 void printMonsterName(Monster *monster)
 {
 	printf("\x1b[3%dm%c%s%c\x1b[39m", ELEMNET_COLOR[monster->element], ELEMNET_SYMBOLS[monster->element], monster->name, ELEMNET_SYMBOLS[monster->element]);
 }
 
-void goDungeon(char *playerName)
+void goDungeon(Party *playerParty)
 {
-	printf("%sはダンジョンに到着した\n", playerName);
+	printf("%sはダンジョンに到着した\n", playerParty->playerName);
+	showParty(playerParty);
+	for (int i = 0; i < pazumonDungeon.monstersCount; i++)
+	{
+		doBattle(playerParty, monsters[i]);
+	}
+	printf("%sはダンジョンに制覇した\n", playerParty->playerName);
 }
 
-void doBattle(Monster *monster)
+void doBattle(Party *playerParty, Monster *monster)
 {
+	printf("                                 \n");
 	printMonsterName(monster);
 	printf("が現れた！\n");
 	printMonsterName(monster);
 	printf("を倒した！\n");
+	printf("%sはさらに奥へと進んだ\n", playerParty->playerName);
+	printf("                                 \n");
+	printf("=================================\n");
 }
