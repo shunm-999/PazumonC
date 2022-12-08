@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 /** プロトタイプ宣言 **/
 typedef char String[1024];
@@ -12,6 +13,10 @@ enum
 	EARTH,
 	LIFE,
 	EMPTY
+};
+enum
+{
+	MAX_GEMS = 14
 };
 /** グローバル定数の宣言 **/
 const char ELEMNET_SYMBOLS[] = {'$', '~', '@', '#', '&', ' '};
@@ -116,9 +121,17 @@ typedef struct
 {
 	char *playerName;
 	Monster **monstersHeadAddress;
-	int totalHp;
 	int monstersCount;
+	int totalHp;
+	int totalMaxHp;
 } Party;
+
+typedef struct
+{
+	Party *pParty;
+	Monster *mMonster;
+	int *gemElements;
+} BattleField;
 
 Dungeon pazumonDungeon = {
 	.monstersHeadAddress = &monsters[0],
@@ -127,13 +140,17 @@ Dungeon pazumonDungeon = {
 /** 関数宣言 **/
 Party organizeParty(char *playerName, Monster **monstersHeadAddress, int monstersCount);
 void showParty(Party *playerParty);
+void fillGems(BattleField *battleField);
 void printMonsterName(Monster *monster);
-int goDungeon(Party *playerParty);
+int goDungeon(char *playerName);
 void doBattle(Party *playerParty, Monster *monster);
-void onPlayerTurn(Party *playerParty, Monster *monster);
-void doAttack(Party *playerParty, Monster *monster);
-void onEnemyTurn(Party *playerParty, Monster *monster);
-void doEnemyAttack(Party *playerParty, Monster *monster);
+void onPlayerTurn(BattleField *battleField);
+void showBattleField(BattleField *battleField);
+void printGems(int *gemElements, int gemCount);
+void printGem(int gem);
+void doAttack(BattleField *battleField);
+void onEnemyTurn(BattleField *battleField);
+void doEnemyAttack(BattleField *battleField);
 
 int main(int argc, char *argv[])
 {
@@ -143,13 +160,13 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	srand((unsigned)time(NULL));
+
 	char *playerName = argv[1];
-	Monster *playerMonsters[] = {&suzaku, &seiryu, &byakko, &gennbu};
-	Party playerParty = organizeParty(playerName, &playerMonsters[0], sizeof(playerMonsters) / sizeof(Monster *));
 
 	printf("*** Puzzle & Monsters ***\n");
 
-	int defeatedMonsterCount = goDungeon(&playerParty);
+	int defeatedMonsterCount = goDungeon(playerName);
 
 	printf("*** GAME CLEARED! ***\n");
 	printf("倒したモンスターの数%d\n", defeatedMonsterCount);
@@ -157,6 +174,37 @@ int main(int argc, char *argv[])
 }
 
 /** ユーティリティ宣言 **/
+
+int goDungeon(char *playerName)
+{
+	Monster *playerMonsters[] = {&suzaku, &seiryu, &byakko, &gennbu};
+	Party playerParty = organizeParty(playerName, &playerMonsters[0], sizeof(playerMonsters) / sizeof(Monster *));
+
+	int defeatedMonsterCount = 0;
+	printf("%sはダンジョンに到着した\n", playerParty.playerName);
+	showParty(&playerParty);
+	for (int i = 0; i < pazumonDungeon.monstersCount; i++)
+	{
+		doBattle(&playerParty, monsters[i]);
+		if (playerParty.totalHp > 0)
+		{
+			defeatedMonsterCount++;
+			printf("%sはさらに奥へと進んだ\n", playerParty.playerName);
+			printf("                                 \n");
+			printf("=================================\n");
+		}
+		else
+		{
+			printf("%sはダンジョンから逃げ出した\n", playerParty.playerName);
+			printf("                                 \n");
+			printf("=================================\n");
+			return defeatedMonsterCount;
+		}
+	}
+	printf("%sはダンジョンに制覇した\n", playerParty.playerName);
+	return defeatedMonsterCount;
+}
+
 Party organizeParty(char *playerName, Monster **monstersHeadAddress, int monstersCount)
 {
 	int totalHp = 0;
@@ -166,10 +214,32 @@ Party organizeParty(char *playerName, Monster **monstersHeadAddress, int monster
 	}
 	Party party = {
 		.playerName = playerName,
+		.monstersCount = monstersCount,
 		.monstersHeadAddress = monstersHeadAddress,
 		.totalHp = totalHp,
-		.monstersCount = monstersCount};
+		.totalMaxHp = totalHp};
 	return party;
+}
+
+void doBattle(Party *playerParty, Monster *monster)
+{
+	int gemElements[14] = {};
+	BattleField battleField = {
+		.pParty = playerParty,
+		.mMonster = monster,
+		.gemElements = &gemElements[0]};
+	fillGems(&battleField);
+
+	printf("                                 \n");
+	printMonsterName(monster);
+	printf("が現れた！\n");
+	while (playerParty->totalHp > 0 && monster->hp > 0)
+	{
+		onPlayerTurn(&battleField);
+		onEnemyTurn(&battleField);
+	}
+	printMonsterName(monster);
+	printf("を倒した！\n");
 }
 
 void showParty(Party *playerParty)
@@ -184,72 +254,85 @@ void showParty(Party *playerParty)
 	printf("--------------------------------\n");
 }
 
+void fillGems(BattleField *battleField)
+{
+	for (int i = 0; i < MAX_GEMS; i++)
+	{
+		int gem = rand() % 5;
+		battleField->gemElements[i] = gem;
+	}
+}
+
 void printMonsterName(Monster *monster)
 {
 	printf("\x1b[3%dm%c%s%c\x1b[39m", ELEMNET_COLOR[monster->element], ELEMNET_SYMBOLS[monster->element], monster->name, ELEMNET_SYMBOLS[monster->element]);
 }
 
-int goDungeon(Party *playerParty)
+void onPlayerTurn(BattleField *battleField)
 {
-	int defeatedMonsterCount = 0;
-	printf("%sはダンジョンに到着した\n", playerParty->playerName);
-	showParty(playerParty);
-	for (int i = 0; i < pazumonDungeon.monstersCount; i++)
+	printf("【%sのターン】\n", battleField->pParty->playerName);
+	showBattleField(battleField);
+	doAttack(battleField);
+}
+
+void showBattleField(BattleField *battleField)
+{
+	printf("--------------------------------\n");
+	printf("                                \n");
+	printf("           ");
+	printMonsterName(battleField->mMonster);
+	printf("          \n");
+	printf("           HP= %d / %d          \n", battleField->mMonster->hp, battleField->mMonster->maxHp);
+	for (int i = 0; i < battleField->pParty->monstersCount; i++)
 	{
-		doBattle(playerParty, monsters[i]);
-		if (playerParty->totalHp > 0)
-		{
-			defeatedMonsterCount++;
-			printf("%sはさらに奥へと進んだ\n", playerParty->playerName);
-			printf("                                 \n");
-			printf("=================================\n");
-		}
-		else
-		{
-			printf("%sはダンジョンから逃げ出した\n", playerParty->playerName);
-			printf("                                 \n");
-			printf("=================================\n");
-			return defeatedMonsterCount;
-		}
+		printMonsterName(battleField->pParty->monstersHeadAddress[i]);
+		printf(" ");
 	}
-	printf("%sはダンジョンに制覇した\n", playerParty->playerName);
-	return defeatedMonsterCount;
+	printf("\n");
+	printf("           HP= %d / %d          \n", battleField->pParty->totalHp, battleField->pParty->totalMaxHp);
+	printf("                                \n");
+	printf("                                \n");
+	printf("--------------------------------\n");
+	printGems(battleField->gemElements, MAX_GEMS);
+	printf("--------------------------------\n");
 }
 
-void doBattle(Party *playerParty, Monster *monster)
+void printGems(int *gemElements, int gemCount)
 {
-	printf("                                 \n");
-	printMonsterName(monster);
-	printf("が現れた！\n");
-	while (playerParty->totalHp > 0 && monster->hp > 0)
+	for (int i = 0; i < gemCount; i++)
 	{
-		onPlayerTurn(playerParty, monster);
-		onEnemyTurn(playerParty, monster);
+		printf(" ");
+		printf("%c", 65 + i);
 	}
-	printMonsterName(monster);
-	printf("を倒した！\n");
+	printf("\n");
+
+	for (int i = 0; i < gemCount; i++)
+	{
+		printf(" ");
+		printGem(gemElements[i]);
+	}
+	printf("\n");
 }
 
-void onPlayerTurn(Party *playerParty, Monster *monster)
+void printGem(int gem)
 {
-	printf("【%sのターン】\n", playerParty->playerName);
-	doAttack(playerParty, monster);
+	printf("\x1b[4%dm%c\x1b[49m", ELEMNET_COLOR[gem], ELEMNET_SYMBOLS[gem]);
 }
 
-void doAttack(Party *playerParty, Monster *monster)
+void doAttack(BattleField *battleField)
 {
-	monster->hp -= 80;
+	battleField->mMonster->hp -= 80;
 	printf("ダミー攻撃で80のダメージを与えた\n");
 }
 
-void onEnemyTurn(Party *playerParty, Monster *monster)
+void onEnemyTurn(BattleField *battleField)
 {
-	printf("【%sのターン】\n", monster->name);
-	doEnemyAttack(playerParty, monster);
+	printf("【%sのターン】\n", battleField->mMonster->name);
+	doEnemyAttack(battleField);
 }
 
-void doEnemyAttack(Party *playerParty, Monster *monster)
+void doEnemyAttack(BattleField *battleField)
 {
-	playerParty->totalHp -= 20;
+	battleField->pParty->totalHp -= 20;
 	printf("20のダメージを受けた\n");
 }
