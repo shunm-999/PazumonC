@@ -1,7 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
 #include <time.h>
 
 /** プロトタイプ宣言 **/
@@ -141,24 +139,16 @@ Dungeon pazumonDungeon = {
 
 /** 関数宣言 **/
 Party organizeParty(char *playerName, Monster **monstersHeadAddress, int monstersCount);
-
 void showParty(Party *playerParty);
 void fillGems(BattleField *battleField);
-
 void printMonsterName(Monster *monster);
 int goDungeon(char *playerName);
 void doBattle(Party *playerParty, Monster *monster);
-
 void onPlayerTurn(BattleField *battleField);
 void showBattleField(BattleField *battleField);
 void printGems(int *gemElements, int gemCount);
 void printGem(int gem);
-bool checkValidCommand(char *input);
-void moveGem(int *gemElements, int start, int end);
-void swapGem(int *gemElements, int source, int target);
-void evaluateGems(BattleField *battleField);
 void doAttack(BattleField *battleField);
-
 void onEnemyTurn(BattleField *battleField);
 void doEnemyAttack(BattleField *battleField);
 
@@ -282,17 +272,7 @@ void onPlayerTurn(BattleField *battleField)
 {
 	printf("【%sのターン】\n", battleField->pParty->playerName);
 	showBattleField(battleField);
-
-	String input = {};
-	while (checkValidCommand(input) == false)
-	{
-		printf("コマンド？＞ \n");
-		scanf("%1023s%*[^\n]%*c", input);
-	}
-	int start = input[0] - 65;
-	int end = input[1] - 65;
-	moveGem(battleField->gemElements, start, end);
-	evaluateGems(battleField);
+	doAttack(battleField);
 }
 
 void showBattleField(BattleField *battleField)
@@ -337,68 +317,6 @@ void printGems(int *gemElements, int gemCount)
 void printGem(int gem)
 {
 	printf("\x1b[4%dm%c\x1b[49m", ELEMNET_COLOR[gem], ELEMNET_SYMBOLS[gem]);
-}
-
-bool checkValidCommand(char *input)
-{
-	char input1 = input[0];
-	char input2 = input[1];
-	if (input1 < 65 || 78 < input1)
-	{
-		return false;
-	}
-	if (input2 < 65 || 78 < input2)
-	{
-		return false;
-	}
-	if (input1 == input2)
-	{
-		return false;
-	}
-	return true;
-}
-
-void moveGem(int *gemElements, int start, int end)
-{
-	printGems(gemElements, MAX_GEMS);
-
-	if (start == end)
-	{
-		return;
-	}
-
-	int startTmp = start;
-	int endTmp = end;
-
-	while (startTmp != endTmp)
-	{
-		if (startTmp > endTmp)
-		{
-			swapGem(gemElements, startTmp, startTmp - 1);
-			printGems(gemElements, MAX_GEMS);
-			startTmp--;
-		}
-		else
-		{
-			swapGem(gemElements, startTmp, startTmp + 1);
-			printGems(gemElements, MAX_GEMS);
-			startTmp++;
-		}
-	}
-}
-
-void swapGem(int *gemElements, int source, int target)
-{
-	int s = gemElements[source];
-	int t = gemElements[target];
-
-	gemElements[source] = t;
-	gemElements[target] = s;
-}
-
-void evaluateGems(BattleField *battleField)
-{
-	doAttack(battleField);
 }
 
 void doAttack(BattleField *battleField)
