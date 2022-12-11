@@ -135,19 +135,6 @@ typedef struct
 	int *gemElements;
 } BattleField;
 
-typedef struct
-{
-	int element;
-	int startIndex;
-	int count;
-} BanishInfo;
-
-typedef struct
-{
-	BanishInfo *banishInfos;
-	int count;
-} BanishInfoList;
-
 Dungeon pazumonDungeon = {
 	.monstersHeadAddress = &monsters[0],
 	.monstersCount = sizeof(monsters) / sizeof(Monster *)};
@@ -170,10 +157,6 @@ bool checkValidCommand(char *input);
 void moveGem(int *gemElements, int start, int end);
 void swapGem(int *gemElements, int source, int target);
 void evaluateGems(BattleField *battleField);
-void checkBanishable(int *gemElements, BanishInfoList *banishInfoList);
-int countGems(int *gemElements, int gem);
-void shiftGems(int *gemElements);
-void spawnGems(int *gemElements);
 void doAttack(BattleField *battleField);
 
 void onEnemyTurn(BattleField *battleField);
@@ -360,13 +343,6 @@ bool checkValidCommand(char *input)
 {
 	char input1 = input[0];
 	char input2 = input[1];
-
-	// 強制終了コマンド
-	if (input1 == 'Z' && input2 == 'Z')
-	{
-		exit(0);
-		return false;
-	}
 	if (input1 < 65 || 78 < input1)
 	{
 		return false;
@@ -422,125 +398,7 @@ void swapGem(int *gemElements, int source, int target)
 
 void evaluateGems(BattleField *battleField)
 {
-	BanishInfo banishInfos[4] = {};
-	BanishInfoList banishInfoList = {
-		.banishInfos = &banishInfos[0],
-		.count = 0};
-	checkBanishable(battleField->gemElements, &banishInfoList);
-
-	if (banishInfoList.count < 1)
-	{
-		return;
-	}
-	for (int i = 0; i < banishInfoList.count; i++)
-	{
-		BanishInfo banishInfo = banishInfos[i];
-
-		for (int m = banishInfo.startIndex; m < banishInfo.startIndex + banishInfo.count; m++)
-		{
-			battleField->gemElements[m] = EMPTY;
-		}
-	}
-	printGems(battleField->gemElements, MAX_GEMS);
 	doAttack(battleField);
-
-	if (countGems(battleField->gemElements, EMPTY) > 0)
-	{
-		shiftGems(battleField->gemElements);
-		spawnGems(battleField->gemElements);
-	}
-}
-
-void checkBanishable(int *gemElements, BanishInfoList *banishInfoList)
-{
-	int elementTmp = -1;
-	int loopingCount = 0;
-
-	for (int i = 0; i < MAX_GEMS; i++)
-	{
-		int iElement = gemElements[i];
-
-		if (elementTmp == iElement)
-		{
-			// 連続
-			loopingCount++;
-		}
-		else
-		{
-			// 不連続
-			if (loopingCount >= 3)
-			{
-				BanishInfo banishInfo = {
-					.element = elementTmp,
-					.startIndex = i - loopingCount,
-					.count = loopingCount};
-				banishInfoList->banishInfos[banishInfoList->count] = banishInfo;
-				banishInfoList->count++;
-			}
-			loopingCount = 1;
-		}
-
-		elementTmp = iElement;
-	}
-
-	if (loopingCount >= 3)
-	{
-		BanishInfo banishInfo = {
-			.element = elementTmp,
-			.startIndex = 13 - (loopingCount - 1),
-			.count = loopingCount};
-		banishInfoList->banishInfos[banishInfoList->count] = banishInfo;
-		banishInfoList->count++;
-	}
-}
-
-int countGems(int *gemElements, int gem)
-{
-	int count = 0;
-	for (int i = 0; i < MAX_GEMS; i++)
-	{
-		if (gemElements[i] == gem)
-		{
-			count++;
-		}
-	}
-	return count;
-}
-
-void shiftGems(int *gemElements)
-{
-	int gemElementsTmp[14] = {};
-	int count = 0;
-	for (int i = 0; i < MAX_GEMS; i++)
-	{
-		gemElementsTmp[i] = EMPTY;
-	}
-	for (int i = 0; i < MAX_GEMS; i++)
-	{
-		int gem = gemElements[i];
-		if (gem != EMPTY)
-		{
-			gemElementsTmp[count] = gem;
-			count++;
-		}
-	}
-	for (int i = 0; i < MAX_GEMS; i++)
-	{
-		gemElements[i] = gemElementsTmp[i];
-	}
-	printGems(gemElements, MAX_GEMS);
-}
-
-void spawnGems(int *gemElements)
-{
-	for (int i = 0; i < MAX_GEMS; i++)
-	{
-		int gem = gemElements[i];
-		if (gem == EMPTY)
-		{
-			gemElements[i] = rand() % 5;
-		}
-	}
 }
 
 void doAttack(BattleField *battleField)
