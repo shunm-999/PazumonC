@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
-#include <math.h>
 #include <time.h>
 
 /** プロトタイプ宣言 **/
@@ -24,7 +23,6 @@ enum
 /** グローバル定数の宣言 **/
 const char ELEMNET_SYMBOLS[] = {'$', '~', '@', '#', '&', ' '};
 const int ELEMNET_COLOR[] = {1, 6, 2, 3, 5, 0};
-const double ELEMENT_BOOST[4][4] = {{1.0, 0.5, 2.0, 1.0}, {2.0, 1.0, 1.0, 0.5}, {0.5, 1.0, 1.0, 2.0}, {1.0, 2.0, 0.5, 1.0}};
 /** 構造体型宣言 **/
 typedef struct
 {
@@ -128,7 +126,6 @@ typedef struct
 	int monstersCount;
 	int totalHp;
 	int totalMaxHp;
-	int totalDefence;
 } Party;
 
 typedef struct
@@ -177,14 +174,10 @@ void checkBanishable(int *gemElements, BanishInfoList *banishInfoList);
 int countGems(int *gemElements, int gem);
 void shiftGems(int *gemElements);
 void spawnGems(int *gemElements);
-int calcAttackDamage(BattleField *battleField, BanishInfoList *banishInfoList, int combo);
-void doAttack(BattleField *battleField, int attack);
-
-int doRecover(int currentHp, int banishLifeCount, int combo);
+void doAttack(BattleField *battleField);
 
 void onEnemyTurn(BattleField *battleField);
-void doEnemyAttack(BattleField *battleField, int attack);
-int calcEnemyAttackDamage(BattleField *battleField);
+void doEnemyAttack(BattleField *battleField);
 
 int main(int argc, char *argv[])
 {
@@ -242,11 +235,9 @@ int goDungeon(char *playerName)
 Party organizeParty(char *playerName, Monster **monstersHeadAddress, int monstersCount)
 {
 	int totalHp = 0;
-	int totalDefence = 0;
 	for (int i = 0; i < monstersCount; i++)
 	{
 		totalHp += monstersHeadAddress[i]->hp;
-		totalDefence += monstersHeadAddress[i]->defence;
 	}
 	Party party = {
 		.playerName = playerName,
@@ -435,11 +426,8 @@ void evaluateGems(BattleField *battleField)
 	BanishInfoList banishInfoList = {
 		.banishInfos = &banishInfos[0],
 		.count = 0};
-
-	// 宝石の消滅判定
 	checkBanishable(battleField->gemElements, &banishInfoList);
 
-	// 宝石の消滅
 	if (banishInfoList.count < 1)
 	{
 		return;
@@ -454,33 +442,8 @@ void evaluateGems(BattleField *battleField)
 		}
 	}
 	printGems(battleField->gemElements, MAX_GEMS);
+	doAttack(battleField);
 
-	// 攻撃処理
-	int attack = calcAttackDamage(battleField, &banishInfoList, 1);
-	doAttack(battleField, attack);
-
-	// HP回復処理
-	for (int i = 0; i < banishInfoList.count; i++)
-	{
-		BanishInfo banishInfo = banishInfos[i];
-		if (banishInfo.element != LIFE)
-		{
-			continue;
-		}
-
-		int recoveredHp = doRecover(battleField->pParty->totalHp, banishInfo.count, 1);
-
-		if (recoveredHp > battleField->pParty->totalHp)
-		{
-			battleField->pParty->totalHp = battleField->pParty->totalMaxHp;
-		}
-		else
-		{
-			battleField->pParty->totalHp = recoveredHp;
-		}
-	}
-
-	// 宝石補充処理
 	if (countGems(battleField->gemElements, EMPTY) > 0)
 	{
 		shiftGems(battleField->gemElements);
@@ -580,79 +543,20 @@ void spawnGems(int *gemElements)
 	}
 }
 
-void doAttack(BattleField *battleField, int attack)
+void doAttack(BattleField *battleField)
 {
-	battleField->mMonster->hp -= attack;
-	printf("ダミー攻撃で%dのダメージを与えた\n", attack);
-}
-
-int calcAttackDamage(BattleField *battleField, BanishInfoList *banishInfoList, int combo)
-{
-	double percent = ((rand() % 3) + 9) / 10;
-	int attack = 0;
-	Party party = *(battleField->pParty);
-
-	for (int i = 0; i < banishInfoList->count; i++)
-	{
-		BanishInfo banishInfo = banishInfoList->banishInfos[i];
-
-		for (int m = 0; m < battleField->pParty->monstersCount; m++)
-		{
-			Monster *partyMonster = battleField->pParty->monstersHeadAddress[m];
-			if (partyMonster->element == banishInfo.element)
-			{
-				// 宝石と属性が一致しているモンスターが攻撃する
-				double elementCorrection = ELEMENT_BOOST[partyMonster->element][battleField->mMonster->element];
-				int partyMonsterAttack = (partyMonster->attack - battleField->mMonster->defence) * elementCorrection * pow(1.5, (banishInfo.count - 3 + combo)) * percent;
-				if (partyMonsterAttack > 0)
-				{
-					attack += partyMonsterAttack;
-				}
-				else
-				{
-					attack += 1;
-				}
-			}
-		}
-	}
-
-	if (attack < 1)
-	{
-		attack = 1;
-	}
-	return attack;
-}
-
-int doRecover(int currentHp, int banishLifeCount, int combo)
-{
-	double percent = ((rand() % 3) + 9) / 10;
-	int recoverHp = 20 * pow(1.5, (banishLifeCount - 3 + combo)) * percent;
-	return currentHp + recoverHp;
+	battleField->mMonster->hp -= 80;
+	printf("ダミー攻撃で80のダメージを与えた\n");
 }
 
 void onEnemyTurn(BattleField *battleField)
 {
 	printf("【%sのターン】\n", battleField->mMonster->name);
-	int attack = calcEnemyAttackDamage(battleField);
-	doEnemyAttack(battleField, attack);
+	doEnemyAttack(battleField);
 }
 
-void doEnemyAttack(BattleField *battleField, int attack)
+void doEnemyAttack(BattleField *battleField)
 {
-	battleField->pParty->totalHp -= attack;
-	printf("%dのダメージを受けた\n", attack);
-}
-
-int calcEnemyAttackDamage(BattleField *battleField)
-{
-
-	double percent = ((rand() % 3) + 9) / 10;
-
-	int attack = (battleField->mMonster->attack - battleField->pParty->totalDefence);
-
-	if (attack < 1)
-	{
-		attack = 1;
-	}
-	return attack;
+	battleField->pParty->totalHp -= 20;
+	printf("20のダメージを受けた\n");
 }
